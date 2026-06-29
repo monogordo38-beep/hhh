@@ -1,0 +1,1274 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Marvel Hobba RPG — Sistema de Combate</title>
+<link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Rajdhani:wght@400;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:        #0a0a0a;
+    --surface:   #111111;
+    --card:      #181818;
+    --border:    #2a2a2a;
+    --red:       #c0392b;
+    --red-dim:   #7a1e15;
+    --gold:      #c9a227;
+    --green:     #39c463;
+    --white:     #e8e8e0;
+    --gray:      #a0a0a0;
+    --lightgray: #c8c8c0;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--white);
+    font-family: 'Inter', sans-serif;
+    font-size: 14px;
+    line-height: 1.6;
+    min-height: 100vh;
+  }
+
+  /* ── Noise texture overlay ── */
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 0;
+    opacity: 0.5;
+  }
+
+  .wrapper {
+    position: relative; z-index: 1;
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 0 24px 60px;
+  }
+
+  /* ── MASTHEAD ── */
+  .masthead {
+    background: var(--red);
+    padding: 18px 32px 28px;
+    margin-bottom: 0;
+  }
+  .masthead-inner {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+  }
+  .masthead-logo {
+    font-family: 'Black Han Sans', sans-serif;
+    font-size: clamp(22px, 5vw, 38px);
+    letter-spacing: 0.06em;
+    color: #fff;
+    text-transform: uppercase;
+    line-height: 1;
+  }
+  .masthead-logo span {
+    display: block;
+    font-size: 0.4em;
+    letter-spacing: 0.2em;
+    color: rgba(255,255,255,0.7);
+  }
+  .masthead-icon {
+    width: 52px; height: 52px; flex-shrink: 0;
+  }
+
+  /* ── IMAGE ZONE below masthead ── */
+  .masthead-image-zone {
+    width: 100%;
+    background: #0d0d0d;
+    border-left: 4px solid var(--red);
+    border-right: 4px solid var(--red);
+    border-bottom: 4px solid var(--red);
+    overflow: hidden;
+    min-height: 60px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 0;
+  }
+  .masthead-image-zone img {
+    width: 100%;
+    height: auto;
+    display: block;
+    object-fit: cover;
+    max-height: 320px;
+  }
+  .masthead-image-zone .img-placeholder {
+    padding: 20px;
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 11px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: rgba(255,255,255,0.2);
+    border: 1px dashed rgba(192,57,43,0.3);
+    margin: 12px;
+    text-align: center;
+  }
+
+  /* ── TOOLTIP / VIÑETA ── */
+  .tip {
+    position: relative;
+    cursor: help;
+    border-bottom: 1px dashed var(--red-dim);
+    color: var(--gold);
+    white-space: nowrap;
+  }
+  .tip::after {
+    content: attr(data-tip);
+    position: absolute;
+    bottom: calc(100% + 8px);
+    left: 50%;
+    transform: translateX(-50%);
+    background: #1a1a1a;
+    border: 1px solid var(--red-dim);
+    border-left: 3px solid var(--red);
+    color: var(--lightgray);
+    font-family: 'Inter', sans-serif;
+    font-size: 12px;
+    font-style: normal;
+    line-height: 1.6;
+    letter-spacing: 0;
+    white-space: normal;
+    width: max-content;
+    max-width: 280px;
+    padding: 8px 12px;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.18s ease;
+    z-index: 100;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.6);
+  }
+  .tip::before {
+    content: '';
+    position: absolute;
+    bottom: calc(100% + 2px);
+    left: 50%;
+    transform: translateX(-50%);
+    border: 6px solid transparent;
+    border-top-color: var(--red-dim);
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.18s ease;
+    z-index: 101;
+  }
+  .tip:hover::after,
+  .tip:hover::before {
+    opacity: 1;
+  }
+  .intro-band {
+    background: var(--surface);
+    border-left: 4px solid var(--red);
+    padding: 24px 28px;
+    margin-top: 24px;
+    margin-bottom: 32px;
+  }
+  .intro-eyebrow {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--gold);
+    margin-bottom: 10px;
+  }
+  .intro-title {
+    font-family: 'Black Han Sans', sans-serif;
+    font-size: clamp(20px, 4vw, 32px);
+    letter-spacing: 0.04em;
+    color: var(--white);
+    line-height: 1.1;
+    margin-bottom: 14px;
+  }
+  .intro-desc {
+    font-size: 13px;
+    color: var(--lightgray);
+    line-height: 1.75;
+    max-width: 680px;
+  }
+
+  /* ── SECTION DIVIDER ── */
+  .section-divider {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 24px 0 8px;
+  }
+  .section-divider .line {
+    flex: 1;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--red-dim), transparent);
+  }
+  .section-divider .div-icon {
+    width: 20px; height: 20px; opacity: 0.65;
+  }
+
+  /* ── ACCORDION / PUNTO ── */
+  .punto {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-top: 2px solid var(--red-dim);
+    margin-bottom: 10px;
+    position: relative;
+    overflow: hidden;
+  }
+  .punto::before {
+    content: '';
+    position: absolute; top: 0; right: 0;
+    width: 60px; height: 60px;
+    background: radial-gradient(circle at top right, rgba(192,57,43,0.1), transparent 70%);
+    pointer-events: none;
+  }
+
+  /* Header button */
+  .punto-trigger {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    width: 100%;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0;
+    text-align: left;
+    color: var(--white);
+  }
+  .punto-trigger:focus-visible {
+    outline: 2px solid var(--red);
+    outline-offset: -2px;
+  }
+
+  .punto-num {
+    font-family: 'Black Han Sans', sans-serif;
+    font-size: 11px;
+    letter-spacing: 0.18em;
+    color: var(--red);
+    background: rgba(192,57,43,0.12);
+    border-right: 1px solid var(--red-dim);
+    padding: 14px 16px;
+    min-width: 56px;
+    text-align: center;
+    flex-shrink: 0;
+    align-self: stretch;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .punto-header-inner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex: 1;
+    padding: 14px 18px;
+    background: rgba(192,57,43,0.08);
+    transition: background 0.2s;
+  }
+  .punto-trigger:hover .punto-header-inner,
+  .punto[open] .punto-header-inner {
+    background: rgba(192,57,43,0.14);
+  }
+
+  .punto-title-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .punto-label {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--gray);
+  }
+  .punto-title {
+    font-family: 'Black Han Sans', sans-serif;
+    font-size: clamp(13px, 2.5vw, 16px);
+    letter-spacing: 0.06em;
+    color: var(--white);
+    line-height: 1.15;
+  }
+
+  .punto-tags {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+
+  .punto-chevron {
+    width: 18px; height: 18px;
+    flex-shrink: 0;
+    margin-left: 14px;
+    color: var(--red);
+    transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  .punto[open] .punto-chevron {
+    transform: rotate(180deg);
+  }
+
+  /* Body */
+  .punto-body {
+    display: none;
+    padding: 20px 18px 20px;
+    border-top: 1px solid var(--border);
+    animation: slide-down 0.22s ease-out;
+  }
+  .punto[open] .punto-body {
+    display: block;
+  }
+  @keyframes slide-down {
+    from { opacity: 0; transform: translateY(-6px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  /* ── CONTENT ELEMENTS ── */
+
+  /* Bloque de regla */
+  .regla {
+    margin-bottom: 14px;
+    padding: 12px 16px;
+    background: rgba(0,0,0,0.28);
+    border-left: 3px solid var(--red-dim);
+  }
+  .regla.gold   { border-left-color: var(--gold); }
+  .regla.green  { border-left-color: var(--green); }
+  .regla.blue   { border-left-color: #5566ff; }
+  .regla.dim    { border-left-color: #444; background: rgba(0,0,0,0.15); opacity: 0.85; }
+
+  .regla-name {
+    font-family: 'Rajdhani', sans-serif;
+    font-weight: 700;
+    font-size: 12px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--gold);
+    margin-bottom: 5px;
+  }
+  .regla-name.red   { color: var(--red); }
+  .regla-name.green { color: var(--green); }
+  .regla-name.white { color: var(--white); }
+  .regla-name.blue  { color: #8899ff; }
+
+  .regla-text {
+    font-size: 13px;
+    color: var(--lightgray);
+    line-height: 1.7;
+  }
+  .regla-text strong { color: var(--white); }
+  .regla-text em     { color: var(--gold); font-style: normal; }
+
+  /* Subencabezado interno */
+  .inner-head {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.2em;
+    color: var(--gray);
+    text-transform: uppercase;
+    padding: 6px 0 8px;
+    border-bottom: 1px solid var(--border);
+    margin: 18px 0 12px;
+  }
+  .inner-head:first-child { margin-top: 0; }
+
+  /* Párrafo de introducción dentro de punto */
+  .punto-intro {
+    font-size: 13px;
+    color: var(--lightgray);
+    line-height: 1.75;
+    margin-bottom: 16px;
+    padding-bottom: 14px;
+    border-bottom: 1px dashed var(--border);
+    font-style: italic;
+  }
+  .punto-intro strong { color: var(--lightgray); font-style: normal; }
+
+  /* Tabla de referencia simple */
+  .ref-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+    margin-bottom: 14px;
+  }
+  .ref-table th {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--gray);
+    padding: 6px 10px;
+    background: rgba(0,0,0,0.4);
+    border-bottom: 1px solid var(--border);
+    text-align: left;
+  }
+  .ref-table td {
+    padding: 7px 10px;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+    color: var(--lightgray);
+    vertical-align: top;
+  }
+  .ref-table td:first-child {
+    font-family: 'Rajdhani', sans-serif;
+    font-weight: 700;
+    color: var(--gold);
+    white-space: nowrap;
+    letter-spacing: 0.05em;
+  }
+  .ref-table tr:last-child td { border-bottom: none; }
+  .ref-table tr:hover td { background: rgba(255,255,255,0.02); }
+
+  /* Badge inline */
+  .badge {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    padding: 2px 8px;
+    border-radius: 2px;
+    text-transform: uppercase;
+    display: inline-block;
+    vertical-align: middle;
+  }
+  .badge-red    { background: var(--red-dim); color: var(--white); border: 1px solid var(--red); }
+  .badge-gold   { background: var(--gold); color: #111; }
+  .badge-green  { background: #1e2a1e; color: var(--green); border: 1px solid #2d4a2d; }
+  .badge-blue   { background: #1e1e2a; color: #8899ff; border: 1px solid #2d2d4a; }
+  .badge-gray   { background: #222; color: var(--gray); border: 1px solid #333; }
+
+  /* Nota / aclaración */
+  .nota {
+    margin-top: 14px;
+    padding: 8px 14px;
+    background: rgba(201,162,39,0.07);
+    border: 1px dashed rgba(201,162,39,0.25);
+    font-size: 12px;
+    color: var(--gray);
+  }
+  .nota strong {
+    font-family: 'Rajdhani', sans-serif;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    color: var(--gold);
+    font-size: 11px;
+  }
+
+  /* Alerta / advertencia */
+  .alerta {
+    margin-top: 14px;
+    padding: 8px 14px;
+    background: rgba(192,57,43,0.08);
+    border: 1px dashed rgba(192,57,43,0.3);
+    font-size: 12px;
+    color: var(--lightgray);
+  }
+  .alerta strong {
+    font-family: 'Rajdhani', sans-serif;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    color: var(--red);
+    font-size: 11px;
+  }
+
+  /* Grid de 2 columnas para estados / listas cortas */
+  .two-col {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-bottom: 14px;
+  }
+  @media(max-width: 540px){ .two-col { grid-template-columns: 1fr; } }
+
+  .two-col .regla { margin-bottom: 0; }
+
+  /* ── BUSCADOR FLOTANTE ── */
+  #search-fab {
+    position: fixed;
+    left: 16px;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 200;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0;
+  }
+
+  /* Botón de abrir */
+  #search-toggle {
+    width: 40px;
+    height: 40px;
+    background: var(--red);
+    border: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    transition: background 0.18s;
+    flex-shrink: 0;
+  }
+  #search-toggle:hover { background: #a93226; }
+  #search-toggle svg { width: 18px; height: 18px; }
+
+  /* Panel del buscador */
+  #search-panel {
+    background: #141414;
+    border: 1px solid var(--red-dim);
+    border-left: 3px solid var(--red);
+    width: 240px;
+    overflow: hidden;
+    max-height: 0;
+    opacity: 0;
+    transition: max-height 0.28s cubic-bezier(0.4,0,0.2,1), opacity 0.22s ease;
+    pointer-events: none;
+  }
+  #search-panel.open {
+    max-height: 220px;
+    opacity: 1;
+    pointer-events: all;
+  }
+
+  #search-panel-inner {
+    padding: 12px 14px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  #search-label {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--red);
+  }
+
+  #search-input {
+    width: 100%;
+    background: rgba(0,0,0,0.5);
+    border: 1px solid var(--border);
+    border-bottom-color: var(--red-dim);
+    color: var(--white);
+    font-family: 'Inter', sans-serif;
+    font-size: 13px;
+    padding: 7px 10px;
+    outline: none;
+    transition: border-color 0.18s;
+  }
+  #search-input:focus { border-color: var(--red); }
+  #search-input::placeholder { color: rgba(160,160,160,0.4); }
+
+  #search-status {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    color: var(--gray);
+    min-height: 16px;
+  }
+  #search-status .hit-count { color: var(--gold); font-weight: 700; }
+  #search-status .no-results { color: var(--red); }
+
+  #search-nav {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+  }
+  .search-nav-btn {
+    background: rgba(192,57,43,0.15);
+    border: 1px solid var(--red-dim);
+    color: var(--white);
+    cursor: pointer;
+    padding: 4px 10px;
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    transition: background 0.15s;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .search-nav-btn:hover { background: rgba(192,57,43,0.35); }
+  .search-nav-btn:disabled { opacity: 0.3; cursor: default; }
+  .search-nav-btn svg { width: 12px; height: 12px; }
+
+  #search-clear {
+    background: none;
+    border: none;
+    color: var(--gray);
+    cursor: pointer;
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 0;
+    margin-left: auto;
+    transition: color 0.15s;
+  }
+  #search-clear:hover { color: var(--red); }
+
+  /* Resaltado de resultados */
+  mark.search-hit {
+    background: rgba(201,162,39,0.35);
+    color: var(--white);
+    border-radius: 1px;
+    padding: 0 1px;
+  }
+  mark.search-hit.current {
+    background: var(--gold);
+    color: #111;
+  }
+
+  /* Responsive: en pantallas pequeñas se va abajo */
+  @media (max-width: 640px) {
+    #search-fab {
+      left: 8px;
+      top: auto;
+      bottom: 20px;
+      transform: none;
+      flex-direction: column-reverse;
+    }
+    #search-panel {
+      width: calc(100vw - 32px);
+      max-width: 300px;
+    }
+  }
+
+  .page-footer {
+    text-align: center;
+    padding: 32px 0 8px;
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 11px;
+    letter-spacing: 0.2em;
+    color: rgba(255,255,255,0.15);
+    text-transform: uppercase;
+  }
+</style>
+</head>
+<body>
+<div class="wrapper">
+
+  <!-- ══ MASTHEAD ══ -->
+  <div class="masthead">
+    <div class="masthead-inner">
+      <div>
+        <div class="masthead-logo">
+          Marvel Hobba RPG
+          <span>Sistemas del juego</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ IMAGEN DEBAJO DEL HEADER ══ -->
+  <!-- Para usar: reemplaza el bloque .img-placeholder por una etiqueta <img src="TU_IMAGEN.jpg" alt="descripción"> -->
+  <div class="masthead-image-zone">
+     <img src="https://i.imgur.com/tYKVUEV.png" alt="descripción">
+  </div>
+
+  <!-- ══ INTRO BAND ══ -->
+  <div class="intro-band">
+    <div class="intro-title">Sistema de Combate</div>
+    <div class="intro-desc">
+      Este documento recoge todas las reglas que rigen los enfrentamientos dentro del rol. Cada punto cubre un aspecto concreto del combate: desde cómo se inicia hasta las condiciones de victoria o derrota. Lee en orden la primera vez; una vez familiarizado, usa el índice para consultas rápidas.
+    </div>
+  </div>
+
+  <!-- ══ PUNTOS ══ -->
+
+  <!-- 01 -->
+  <div class="punto" id="p1">
+    <button class="punto-trigger" onclick="togglePunto(this)" aria-expanded="false">
+      <div class="punto-num">1</div>
+      <div class="punto-header-inner">
+        <div class="punto-title-wrap">
+          <div class="punto-title">Inicio de un Combate</div>
+        </div>
+        <div class="punto-tags">
+          <span class="badge badge-gold">Fundamental</span>
+          <svg class="punto-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+        </div>
+      </div>
+    </button>
+    <div class="punto-body">
+      <div class="punto-intro">Un combate comienza en el momento en que un personaje ejecuta una acción hostil contra otro o declara intención de combate. A partir de ese instante se aplican todas las reglas de este sistema.</div>
+
+      <div class="inner-head">1.1 Condiciones de inicio</div>
+
+      <div class="regla">
+        <div class="regla-name">Acción Hostil</div>
+        <div class="regla-text">chupagueborelleno123</div>
+      </div>
+      <div class="regla">
+        <div class="regla-name">Declaración de Combate</div>
+        <div class="regla-text">chupagueborelleno123</div>
+      </div>
+
+      <div class="inner-head">1.2 Orden de Turnos</div>
+
+      <div class="regla gold">
+        <div class="regla-name gold">Iniciativa</div>
+        <div class="regla-text">chupagueborelleno123</div>
+      </div>
+
+      <div class="nota"><strong>Nota</strong> — chupagueborelleno123</div>
+    </div>
+  </div>
+
+  <!-- 02 -->
+  <div class="punto" id="p2">
+    <button class="punto-trigger" onclick="togglePunto(this)" aria-expanded="false">
+      <div class="punto-num">02</div>
+      <div class="punto-header-inner">
+        <div class="punto-title-wrap">
+          <div class="punto-label">Punto 2</div>
+          <div class="punto-title">Turnos y Acciones</div>
+        </div>
+        <div class="punto-tags">
+          <span class="badge badge-red">Core</span>
+          <svg class="punto-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+        </div>
+      </div>
+    </button>
+    <div class="punto-body">
+      <div class="punto-intro">Cada ronda de combate se divide en turnos. En su turno, un personaje dispone de un número de <em>Puntos de Acción (PA)</em> que puede gastar en habilidades, movimiento o acciones básicas.</div>
+
+      <div class="inner-head">Puntos de Acción</div>
+
+      <table class="ref-table">
+        <thead>
+          <tr>
+            <th>PA</th>
+            <th>Qué permite</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td>1 PA</td><td>Acción básica: movimiento, ataque simple, activar una habilidad de coste 1.</td></tr>
+          <tr><td>2 PA</td><td>Habilidades de coste medio o combinar movimiento + ataque básico.</td></tr>
+          <tr><td>3 PA</td><td>Habilidades de gran coste o combos complejos definidos en la hoja de poder.</td></tr>
+          <tr><td>0 PA</td><td>Reflejos: habilidades reactivas marcadas explícitamente con este coste.</td></tr>
+        </tbody>
+      </table>
+
+      <div class="inner-head">Tipos de Acción</div>
+
+      <div class="two-col">
+        <div class="regla">
+          <div class="regla-name">Ofensiva</div>
+          <div class="regla-text">Habilidades diseñadas para infligir daño o efectos negativos sobre un objetivo.</div>
+        </div>
+        <div class="regla">
+          <div class="regla-name green">Defensiva</div>
+          <div class="regla-text">Acciones para reducir, bloquear o evadir el daño recibido.</div>
+        </div>
+        <div class="regla blue">
+          <div class="regla-name blue">Suplementaria</div>
+          <div class="regla-text">Potencia o modifica otra habilidad usada en el mismo turno.</div>
+        </div>
+        <div class="regla gold">
+          <div class="regla-name">Reflejo</div>
+          <div class="regla-text">Se ejecuta fuera del turno propio, en respuesta a una acción del rival.</div>
+        </div>
+      </div>
+
+      <div class="alerta"><strong>Límite</strong> — Solo se puede usar <strong>1 Reflejo por acción enemiga</strong>, salvo que una habilidad especifique lo contrario.</div>
+    </div>
+  </div>
+
+  <!-- 03 -->
+  <div class="punto" id="p3">
+    <button class="punto-trigger" onclick="togglePunto(this)" aria-expanded="false">
+      <div class="punto-num">03</div>
+      <div class="punto-header-inner">
+        <div class="punto-title-wrap">
+          <div class="punto-label">Punto 3</div>
+          <div class="punto-title">Tipos de Ataque</div>
+        </div>
+        <div class="punto-tags">
+          <svg class="punto-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+        </div>
+      </div>
+    </button>
+    <div class="punto-body">
+      <div class="punto-intro">Los ataques se clasifican según su naturaleza. Esta clasificación determina qué defensas pueden neutralizarlos y qué resistencias aplican.</div>
+
+      <div class="regla">
+        <div class="regla-name">Físico</div>
+        <div class="regla-text">Golpes, proyectiles, armas de filo o contundentes. Se mitigan con defensas físicas y resistencias de durabilidad.</div>
+      </div>
+      <div class="regla gold">
+        <div class="regla-name">Místico / Energético</div>
+        <div class="regla-text">Poderes de energía, magia o tecnología avanzada. Ignoran defensas físicas a menos que la habilidad especifique lo contrario.</div>
+      </div>
+      <div class="regla blue">
+        <div class="regla-name blue">Mental</div>
+        <div class="regla-text">Ataques telepáticos o de control. Solo se mitigan con escudos mentales o resistencias específicas.</div>
+      </div>
+      <div class="regla green">
+        <div class="regla-name green">Ambiental</div>
+        <div class="regla-text">Daño procedente del entorno (fuego, veneno, radiación). Véase Punto 7 — Entorno para detalles.</div>
+      </div>
+
+      <div class="nota"><strong>Nota</strong> — Una habilidad puede tener <strong>tipo mixto</strong>. En ese caso, el objetivo aplica la resistencia más alta que posea entre los tipos implicados, salvo indicación contraria.</div>
+    </div>
+  </div>
+
+  <!-- 04 -->
+  <div class="punto" id="p4">
+    <button class="punto-trigger" onclick="togglePunto(this)" aria-expanded="false">
+      <div class="punto-num">04</div>
+      <div class="punto-header-inner">
+        <div class="punto-title-wrap">
+          <div class="punto-label">Punto 4</div>
+          <div class="punto-title">Defensa y Resistencias</div>
+        </div>
+        <div class="punto-tags">
+          <span class="badge badge-green">Defensa</span>
+          <svg class="punto-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+        </div>
+      </div>
+    </button>
+    <div class="punto-body">
+      <div class="punto-intro">Cuando un personaje recibe un ataque puede intentar reducir o negar su efecto. Existen dos capas: la <em>Evasión</em> (evitar el impacto) y la <em>Resistencia</em> (absorber el daño).</div>
+
+      <div class="inner-head">Evasión</div>
+      <div class="regla">
+        <div class="regla-name white">Evadir</div>
+        <div class="regla-text">El personaje declara evasión antes de que se calcule el daño. Si la habilidad defensiva supera el umbral de la ofensiva, el ataque no conecta. La evasión gasta el Reflejo disponible de ese turno.</div>
+      </div>
+
+      <div class="inner-head">Resistencias</div>
+      <div class="regla">
+        <div class="regla-name">Resistencia Física</div>
+        <div class="regla-text">Reduce el daño físico recibido según el nivel indicado en la hoja de personaje. Se expresa en porcentaje o multiplicador: <em>×0.5</em> equivale a reducir a la mitad.</div>
+      </div>
+      <div class="regla gold">
+        <div class="regla-name">Resistencia Mística / Energética</div>
+        <div class="regla-text">Ídem para ataques de energía y magia. No aplica a daño físico salvo habilidades concretas.</div>
+      </div>
+      <div class="regla blue">
+        <div class="regla-name blue">Escudo Mental</div>
+        <div class="regla-text">Protección específica contra ataques de tipo Mental. Solo se posee si la hoja lo recoge explícitamente.</div>
+      </div>
+
+      <div class="alerta"><strong>Importante</strong> — Algunas habilidades ofensivas <strong>ignoran</strong> ciertas resistencias. Siempre prevalece lo que indique la habilidad atacante sobre la resistencia del defensor, salvo que la resistencia especifique lo contrario.</div>
+    </div>
+  </div>
+
+  <!-- 05 -->
+  <div class="punto" id="p5">
+    <button class="punto-trigger" onclick="togglePunto(this)" aria-expanded="false">
+      <div class="punto-num">05</div>
+      <div class="punto-header-inner">
+        <div class="punto-title-wrap">
+          <div class="punto-label">Punto 5</div>
+          <div class="punto-title">Daño</div>
+        </div>
+        <div class="punto-tags">
+          <span class="badge badge-red">Core</span>
+          <svg class="punto-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+        </div>
+      </div>
+    </button>
+    <div class="punto-body">
+      <div class="punto-intro">El daño se expresa siempre como un valor numérico que se resta a los <em>Puntos de Vida (PV)</em> del objetivo tras aplicar resistencias.</div>
+
+      <div class="inner-head">Fórmula base</div>
+      <div class="regla gold">
+        <div class="regla-name">Daño Final</div>
+        <div class="regla-text"><em>Valor de habilidad × Modificador</em> − Resistencia aplicable = Daño final. El resultado nunca puede ser negativo: el mínimo es <em>0</em>.</div>
+      </div>
+
+      <div class="inner-head">Tipos de Daño</div>
+      <div class="regla">
+        <div class="regla-name">Daño Directo</div>
+        <div class="regla-text">Se aplica de inmediato al recibir el ataque. No puede ser retrasado ni acumulado de forma pasiva.</div>
+      </div>
+      <div class="regla">
+        <div class="regla-name">Daño Indirecto (DoT)</div>
+        <div class="regla-text">Se aplica en cuotas durante un número de acciones o rondas indicado en la habilidad. Venenos, hemorragias y quemaduras son ejemplos habituales.</div>
+      </div>
+      <div class="regla dim">
+        <div class="regla-name white">Daño en Área</div>
+        <div class="regla-text">Afecta a todos los objetivos dentro del radio especificado. Cada objetivo aplica sus propias resistencias de forma independiente.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 06 -->
+  <div class="punto" id="p6">
+    <button class="punto-trigger" onclick="togglePunto(this)" aria-expanded="false">
+      <div class="punto-num">06</div>
+      <div class="punto-header-inner">
+        <div class="punto-title-wrap">
+          <div class="punto-label">Punto 6</div>
+          <div class="punto-title">Estados Alterados</div>
+        </div>
+        <div class="punto-tags">
+          <span class="badge badge-blue">Condiciones</span>
+          <svg class="punto-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+        </div>
+      </div>
+    </button>
+    <div class="punto-body">
+      <div class="punto-intro">Los estados alterados modifican las capacidades de un personaje durante un tiempo determinado. Se aplican mediante habilidades específicas y se indican en el cuerpo del texto de cada poder.</div>
+
+      <table class="ref-table">
+        <thead>
+          <tr>
+            <th>Estado</th>
+            <th>Efecto</th>
+            <th>Cura</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Aturdido</td>
+            <td>El personaje pierde todos sus PA durante el tiempo indicado. No puede usar Reflejos.</td>
+            <td>Fin de duración o habilidad curativa.</td>
+          </tr>
+          <tr>
+            <td>Inmovilizado</td>
+            <td>No puede moverse. Puede seguir actuando con habilidades que no requieran desplazamiento.</td>
+            <td>Fin de duración, habilidad de escape o daño a la fuente.</td>
+          </tr>
+          <tr>
+            <td>Cegado</td>
+            <td>Ataques de alcance imposibles. Los ataques cuerpo a cuerpo sufren un penalizador indicado por la habilidad causante.</td>
+            <td>Fin de duración.</td>
+          </tr>
+          <tr>
+            <td>Hemorragia</td>
+            <td>Daño indirecto por turno. El valor se indica en la habilidad que la provoca.</td>
+            <td>Habilidad curativa que supere el valor de hemorragia activo.</td>
+          </tr>
+          <tr>
+            <td>Quemado</td>
+            <td>Daño ígneo por turno + penalizador a resistencias físicas indicado en la habilidad.</td>
+            <td>Habilidad de extinción o fin de duración.</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="nota"><strong>Acumulación</strong> — Los estados del mismo tipo no se acumulan por defecto. El de mayor valor o duración prevalece, salvo que la habilidad indique expresamente que se apila.</div>
+    </div>
+  </div>
+
+  <!-- 07 -->
+  <div class="punto" id="p7">
+    <button class="punto-trigger" onclick="togglePunto(this)" aria-expanded="false">
+      <div class="punto-num">07</div>
+      <div class="punto-header-inner">
+        <div class="punto-title-wrap">
+          <div class="punto-label">Punto 7</div>
+          <div class="punto-title">Entorno</div>
+        </div>
+        <div class="punto-tags">
+          <span class="badge badge-gray">Opcional</span>
+          <svg class="punto-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+        </div>
+      </div>
+    </button>
+    <div class="punto-body">
+      <div class="punto-intro">El escenario de combate puede interactuar con los personajes. Los elementos del entorno se tratan como objectivos con sus propios PV y pueden ser destruidos, usados como cobertura o convertirse en fuente de daño ambiental.</div>
+
+      <div class="inner-head">Cobertura</div>
+      <div class="regla">
+        <div class="regla-name">Cobertura Parcial</div>
+        <div class="regla-text">El personaje está parcialmente oculto. Ataques de alcance reciben una reducción de efectividad indicada por el Narrador, habitualmente entre <em>×0.5</em> y <em>×0.8</em>.</div>
+      </div>
+      <div class="regla gold">
+        <div class="regla-name">Cobertura Total</div>
+        <div class="regla-text">El personaje no puede ser objetivo de ataques de alcance mientras permanezca en cobertura total. Debe asomarse (usando 1 PA) para atacar, perdiendo la cobertura ese turno.</div>
+      </div>
+
+      <div class="inner-head">Daño Ambiental</div>
+      <div class="regla dim">
+        <div class="regla-name white">Estructuras y Objetos</div>
+        <div class="regla-text">Si un personaje impacta contra una estructura (arrojado, caída, etc.) recibe daño ambiental determinado por el Narrador según la dureza del material y la fuerza del impacto.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 08 -->
+  <div class="punto" id="p8">
+    <button class="punto-trigger" onclick="togglePunto(this)" aria-expanded="false">
+      <div class="punto-num">08</div>
+      <div class="punto-header-inner">
+        <div class="punto-title-wrap">
+          <div class="punto-label">Punto 8</div>
+          <div class="punto-title">Fin del Combate</div>
+        </div>
+        <div class="punto-tags">
+          <span class="badge badge-gold">Resolución</span>
+          <svg class="punto-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+        </div>
+      </div>
+    </button>
+    <div class="punto-body">
+      <div class="punto-intro">El combate concluye cuando se cumple alguna de las condiciones de resolución. En ese momento cesan todos los efectos activos salvo los que indiquen explícitamente persistir fuera de combate.</div>
+
+      <div class="inner-head">Condiciones de Victoria</div>
+      <div class="regla green">
+        <div class="regla-name green">Derrota del Oponente</div>
+        <div class="regla-text">El rival cae a <em>0 PV</em> o queda incapacitado de forma que no pueda continuar el combate.</div>
+      </div>
+      <div class="regla green">
+        <div class="regla-name green">Rendición</div>
+        <div class="regla-text">Un participante declara rendición. El combate termina salvo que el vencedor decida no aceptarla, en cuyo caso el contexto narrativo rige la consecuencia.</div>
+      </div>
+      <div class="regla">
+        <div class="regla-name">Huida</div>
+        <div class="regla-text">Un personaje abandona el área de combate. El Narrador determina si la huida es posible y qué coste en acciones supone.</div>
+      </div>
+
+      <div class="inner-head">Consecuencias post-combate</div>
+      <div class="regla">
+        <div class="regla-name">Estado físico</div>
+        <div class="regla-text">Los personajes conservan los PV con los que terminaron el combate. La recuperación se rige por las reglas de curación fuera de combate, no detalladas en este documento.</div>
+      </div>
+
+      <div class="alerta"><strong>Atención</strong> — Los efectos con duración expresada en <strong>rondas o acciones</strong> se anulan al terminar el combate. Los expresados en <strong>horas o días</strong> persisten.</div>
+    </div>
+  </div>
+
+  <div class="page-footer">Marvel Hobba RPG — Sistema de Combate · Reglamento General</div>
+
+</div>
+
+<!-- ══ BUSCADOR FLOTANTE ══ -->
+<div id="search-fab">
+  <button id="search-toggle" title="Buscar en el reglamento" onclick="toggleSearch()">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+    </svg>
+  </button>
+  <div id="search-panel">
+    <div id="search-panel-inner">
+      <div id="search-label">Buscar en el reglamento</div>
+      <input id="search-input" type="text" placeholder="Ej: Iniciativa, Reflejo, DoT…" autocomplete="off" oninput="doSearch(this.value)" onkeydown="searchKeyNav(event)">
+      <div id="search-status"></div>
+      <div id="search-nav">
+        <button class="search-nav-btn" id="btn-prev" onclick="navHit(-1)" disabled>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+          Ant.
+        </button>
+        <button class="search-nav-btn" id="btn-next" onclick="navHit(1)" disabled>
+          Sig.
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+        </button>
+        <button id="search-clear" onclick="clearSearch()">Limpiar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  /* ── Acordeones ── */
+  function togglePunto(btn) {
+    const punto = btn.closest('.punto');
+    const isOpen = punto.hasAttribute('open');
+    if (isOpen) {
+      punto.removeAttribute('open');
+      btn.setAttribute('aria-expanded', 'false');
+    } else {
+      punto.setAttribute('open', '');
+      btn.setAttribute('aria-expanded', 'true');
+    }
+  }
+
+  /* ── Buscador flotante ── */
+  let searchOpen = false;
+  let allHits = [];
+  let currentHit = -1;
+
+  function toggleSearch() {
+    searchOpen = !searchOpen;
+    document.getElementById('search-panel').classList.toggle('open', searchOpen);
+    if (searchOpen) {
+      setTimeout(() => document.getElementById('search-input').focus(), 80);
+    }
+  }
+
+  function doSearch(query) {
+    // Limpiar marcas anteriores
+    clearMarks();
+    allHits = [];
+    currentHit = -1;
+
+    const status = document.getElementById('search-status');
+    const btnPrev = document.getElementById('btn-prev');
+    const btnNext = document.getElementById('btn-next');
+
+    if (!query || query.trim().length < 2) {
+      status.innerHTML = '';
+      btnPrev.disabled = true;
+      btnNext.disabled = true;
+      return;
+    }
+
+    const term = query.trim();
+    const regex = new RegExp(escapeRegex(term), 'gi');
+
+    // Buscar en todos los puntos
+    document.querySelectorAll('.punto').forEach(punto => {
+      const body = punto.querySelector('.punto-body');
+      const header = punto.querySelector('.punto-header-inner');
+      if (!body || !header) return;
+
+      // Buscar en header (título)
+      const titleEl = header.querySelector('.punto-title');
+      if (titleEl && regex.test(titleEl.textContent)) {
+        regex.lastIndex = 0;
+        highlightNode(titleEl, regex);
+        regex.lastIndex = 0;
+      }
+
+      // Buscar en el cuerpo (texto de reglas, intro, etc.)
+      const textNodes = getTextNodes(body);
+      textNodes.forEach(node => {
+        regex.lastIndex = 0;
+        if (regex.test(node.nodeValue)) {
+          regex.lastIndex = 0;
+          const marked = markTextNode(node, regex);
+          if (marked.length) {
+            // Abrir el acordeón si tiene resultados
+            if (!punto.hasAttribute('open')) {
+              punto.setAttribute('open', '');
+              punto.querySelector('.punto-trigger').setAttribute('aria-expanded', 'true');
+            }
+            allHits.push(...marked);
+          }
+        }
+      });
+    });
+
+    // También buscar en títulos de header aunque no haya body abierto
+    const headerHits = document.querySelectorAll('mark.search-hit');
+    // Reconstruir lista ordenada por posición en el DOM
+    allHits = Array.from(document.querySelectorAll('mark.search-hit'));
+
+    if (allHits.length === 0) {
+      status.innerHTML = `<span class="no-results">Sin resultados para "${escapeHtml(term)}"</span>`;
+      btnPrev.disabled = true;
+      btnNext.disabled = true;
+    } else {
+      currentHit = 0;
+      highlightCurrent();
+      status.innerHTML = `<span class="hit-count">${allHits.length}</span> resultado${allHits.length !== 1 ? 's' : ''}`;
+      btnPrev.disabled = allHits.length <= 1;
+      btnNext.disabled = allHits.length <= 1;
+    }
+  }
+
+  function navHit(dir) {
+    if (allHits.length === 0) return;
+    allHits[currentHit]?.classList.remove('current');
+    currentHit = (currentHit + dir + allHits.length) % allHits.length;
+    highlightCurrent();
+    const status = document.getElementById('search-status');
+    const total = allHits.length;
+    status.innerHTML = `<span class="hit-count">${currentHit + 1} / ${total}</span> resultado${total !== 1 ? 's' : ''}`;
+  }
+
+  function highlightCurrent() {
+    if (currentHit < 0 || !allHits[currentHit]) return;
+    allHits[currentHit].classList.add('current');
+    allHits[currentHit].scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+
+  function clearSearch() {
+    document.getElementById('search-input').value = '';
+    clearMarks();
+    allHits = [];
+    currentHit = -1;
+    document.getElementById('search-status').innerHTML = '';
+    document.getElementById('btn-prev').disabled = true;
+    document.getElementById('btn-next').disabled = true;
+  }
+
+  function clearMarks() {
+    document.querySelectorAll('mark.search-hit').forEach(mark => {
+      const parent = mark.parentNode;
+      parent.replaceChild(document.createTextNode(mark.textContent), mark);
+      parent.normalize();
+    });
+  }
+
+  function getTextNodes(el) {
+    const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT, {
+      acceptNode(node) {
+        // Saltar scripts, estilos y nodos vacíos
+        const tag = node.parentElement?.tagName?.toLowerCase();
+        if (['script','style'].includes(tag)) return NodeFilter.FILTER_REJECT;
+        if (!node.nodeValue.trim()) return NodeFilter.FILTER_SKIP;
+        return NodeFilter.FILTER_ACCEPT;
+      }
+    });
+    const nodes = [];
+    let n;
+    while ((n = walker.nextNode())) nodes.push(n);
+    return nodes;
+  }
+
+  function markTextNode(textNode, regex) {
+    const text = textNode.nodeValue;
+    const frag = document.createDocumentFragment();
+    let lastIdx = 0;
+    let match;
+    const marks = [];
+    regex.lastIndex = 0;
+    while ((match = regex.exec(text)) !== null) {
+      if (match.index > lastIdx) {
+        frag.appendChild(document.createTextNode(text.slice(lastIdx, match.index)));
+      }
+      const mark = document.createElement('mark');
+      mark.className = 'search-hit';
+      mark.textContent = match[0];
+      frag.appendChild(mark);
+      marks.push(mark);
+      lastIdx = regex.lastIndex;
+    }
+    if (lastIdx < text.length) {
+      frag.appendChild(document.createTextNode(text.slice(lastIdx)));
+    }
+    if (marks.length > 0) {
+      textNode.parentNode.replaceChild(frag, textNode);
+    }
+    return marks;
+  }
+
+  function highlightNode(el, regex) {
+    const textNodes = getTextNodes(el);
+    textNodes.forEach(n => { regex.lastIndex = 0; markTextNode(n, regex); });
+  }
+
+  function escapeRegex(s) {
+    return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  }
+  function escapeHtml(s) {
+    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  function searchKeyNav(e) {
+    if (e.key === 'Enter') {
+      if (e.shiftKey) navHit(-1); else navHit(1);
+    }
+    if (e.key === 'Escape') toggleSearch();
+  }
+
+  // Cerrar con Escape desde fuera del input
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && searchOpen) toggleSearch();
+  });
+</script>
+</body>
+</html>
